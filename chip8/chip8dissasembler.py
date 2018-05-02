@@ -31,7 +31,7 @@ class Chip8Disassembler(object):
         elif self.firstnib == 0x4:
             self.skip_if_not_equal()
         elif self.firstnib == 0x5:
-            self.skip_if_equal
+            self.skip_if_equal()
         elif self.firstnib == 0x6:
             self.load()
         elif self.firstnib == 0x7:

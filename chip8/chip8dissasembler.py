@@ -20,8 +20,9 @@ class Chip8Disassembler(object):
                 self.clear_display()
             elif self.next_byte == 0xEE:
                 self.return_from_subroutine()
-            else: print("{:03X}  {:02X}{:02X}  UNKNOWN 0".format(
-                self.pc, self.code, self.next_byte))
+            else:
+                print("{:03X}  {:02X}{:02X}  UNKNOWN 0".format(
+                    self.pc, self.code, self.next_byte))
         elif self.firstnib == 0x1:
             self.jump_address()
         elif self.firstnib == 0x2:
@@ -56,8 +57,9 @@ class Chip8Disassembler(object):
                 self.sub_registers_y_x()
             elif self.next_byte_secondnib == 0xE:
                 self.shift_left()
-            else: print("{:03X}  {:02X}{:02X}  UNKNOWN 8".format(
-                self.pc, self.code, self.next_byte))
+            else:
+                print("{:03X}  {:02X}{:02X}  UNKNOWN 8".format(
+                    self.pc, self.code, self.next_byte))
 
         elif self.firstnib == 0x9:
             self.skip_next_instruction()
@@ -75,8 +77,9 @@ class Chip8Disassembler(object):
                 self.skip_next_on_key_press()
             elif self.next_byte == 0xA1:
                 self.skip_next_on_not_key_press()
-            else: print("{:03X}  {:02X}{:02X}  UNKNOWN E".format(
-                self.pc, self.code, self.next_byte))
+            else:
+                print("{:03X}  {:02X}{:02X}  UNKNOWN E".format(
+                    self.pc, self.code, self.next_byte))
 
         elif self.firstnib == 0xF:
             if self.next_byte == 0x07:
@@ -97,18 +100,21 @@ class Chip8Disassembler(object):
                 self.store_in_memory()
             elif self.next_byte == 0x65:
                 self.read_from_memory()
-            else: print("{:03X}  {:02X}{:02X}  UNKNOWN F".format(
-                self.pc, self.code, self.next_byte))
+            else:
+                print("{:03X}  {:02X}{:02X}  UNKNOWN F".format(
+                    self.pc, self.code, self.next_byte))
 
-    #6xkk LD
+    # 6xkk LD
     def load(self):
         print("{:03X}  {:02X}{:02X}  LD V{:01X} {:02X}".format(
             self.pc, self.code, self.next_byte, self.secondnib, self.next_byte))
-    #7xkk ADD
+    # 7xkk ADD
+
     def add(self):
         print("{:03X}  {:02X}{:02X}  ADD V{:01X} {:02X}".format(
             self.pc, self.code, self.next_byte, self.secondnib, self.next_byte))
-    #1nnn JMP
+    # 1nnn JMP
+
     def jump_address(self):
         print("{:03X}  {:02X}{:02X}  JMP {:01X}{:02X}".format(
             self.pc, self.code, self.next_byte, self.secondnib, self.next_byte))
@@ -147,7 +153,7 @@ class Chip8Disassembler(object):
 
     def draw_sprites(self):
         print("{:03X}  {:02X}{:02X}  DRW Starting at memory location V{:01X}, V{:01X},".format(
-            self.pc, self.code, self.next_byte, self.secondnib, self.next_byte_firstnib),  
+            self.pc, self.code, self.next_byte, self.secondnib, self.next_byte_firstnib),
             " sprites are XORed onto the screen, set VF = collision")
 
     def skip_next_on_key_press(self):
@@ -158,8 +164,7 @@ class Chip8Disassembler(object):
         print("{:03X}  {:02X}{:02X}  SKNP V{:01X}".format(
             self.pc, self.code, self.next_byte, self.secondnib))
 
-
-    #8xxx...
+    # 8xxx...
     def load_register_with_register(self):
         print("{:03X}  {:02X}{:02X}  LD V{:01X} V{:01X}".format(
             self.pc, self.code, self.next_byte, self.secondnib, self.next_byte_firstnib))
@@ -196,10 +201,10 @@ class Chip8Disassembler(object):
         print("{:03X}  {:02X}{:02X}  SHL V{:01X} 1".format(
             self.pc, self.code, self.next_byte, self.secondnib))
 
-    #TODO OBSOLETE
-    #def jump_to_sys_address(self): 
+    # TODO OBSOLETE
+    # def jump_to_sys_address(self):
     #    print("{:03X}    SYS {:01X}{:02X}".format(self.pc, self.secondnib, self.next_byte))
-    #TODO OBSOLETE 
+    # TODO OBSOLETE
 
     def clear_display(self):
         print("{:03X}  {:02X}{:02X}  CLS".format(
@@ -209,7 +214,7 @@ class Chip8Disassembler(object):
         print("{:03X}  {:02X}{:02X}  RET".format(
             self.pc, self.code, self.next_byte))
 
-    #Fxxx....
+    # Fxxx....
     def set_register_delay_timer(self):
         print("{:03X}  {:02X}{:02X}  LD V{:02}, DT".format(
             self.pc, self.code, self.next_byte, self.secondnib))
@@ -294,5 +299,5 @@ def main():
         i += 2
 
 
-
-main()
+if __name__ == "__main__":
+    main()

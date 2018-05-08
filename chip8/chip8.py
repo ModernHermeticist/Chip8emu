@@ -6,7 +6,28 @@ from pygame.locals import *
 from chip8screen import Chip8Screen
 
 
-BLACK = [0,0,0]
+KEY_MAPPINGS = {
+    0x0: pygame.K_KP0,
+    0x1: pygame.K_KP1,
+    0x2: pygame.K_KP2,
+    0x3: pygame.K_KP3,
+    0x4: pygame.K_KP4,
+    0x5: pygame.K_KP5,
+    0x6: pygame.K_KP6,
+    0x7: pygame.K_KP7,
+    0x8: pygame.K_KP8,
+    0x9: pygame.K_KP9,
+    0xA: pygame.K_a,
+    0xB: pygame.K_b,
+    0xC: pygame.K_c,
+    0xD: pygame.K_d,
+    0xE: pygame.K_e,
+    0xF: pygame.K_f,
+}
+
+# The font file to use
+FONT_FILE = "FONTS.chip8"
+
 
 class Chip8(object):
 
@@ -24,7 +45,7 @@ class Chip8(object):
 
         self.file_size = 0
 
-        self.SCREEN_SIZE = [320,160]
+        self.SCREEN_SIZE = [320, 160]
 
         self.memory = [0] * 4096
 
@@ -36,7 +57,6 @@ class Chip8(object):
         self.code = 0x00
 
         self.screen = screen
-
 
         ####KEYS####
         K_1 = 0x01
@@ -66,6 +86,27 @@ class Chip8(object):
                         yield b
                 else:
                     break
+
+    def bytes_from_font_file(self):
+        with open("FONTS.chip8", "rb") as f:
+            self.file_size = os.path.getsize("FONTS.chip8")
+            while True:
+                chunk = f.read(200)
+                if chunk:
+                    for b in chunk:
+                        yield b
+                else:
+                    break
+
+    def load_fonts_to_memory(self):
+        i = 0x00
+        for b in self.bytes_from_font_file():
+            self.memory[i] = hex(b)
+            i += 0x01
+        i = 0x00
+        while i < self.file_size:
+            self.memory[i] = int(self.memory[i], 16)
+            i += 0x01
 
     def load_file_to_memory(self):
         i = 0x200
@@ -100,10 +141,8 @@ class Chip8(object):
             self.skip_if_equal()
         elif self.firstnib == 0x6:
             self.load()
-            self.pc += 2
         elif self.firstnib == 0x7:
             self.add()
-            self.pc += 2
 
         elif self.firstnib == 0x8:
             if self.next_byte_secondnib == 0x0:
@@ -192,16 +231,18 @@ class Chip8(object):
         # self.pc, self.code, self.next_byte, self.secondnib, self.next_byte))
         print("{:03X}  LD  V{:01X}: {:02X}".format(self.pc, self.secondnib,
                                                    self.general_registers[self.secondnib]))
+        self.pc += 2
     # 7xkk ADD
 
     def add(self):
         self.general_registers[self.secondnib] += self.next_byte
         if self.general_registers[self.secondnib] > 255:
-            self.general_registers[self.secondnib] -= 255
+            self.general_registers[self.secondnib] -= 256
         # print("{:03X}  {:02X}{:02X}  ADD V{:01X} {:02X}".format(
         # self.pc, self.code, self.next_byte, self.secondnib, self.next_byte))
         print("{:03X}  ADD  V{:01X}: {:02X}".format(
             self.pc, self.secondnib, self.next_byte))
+        self.pc += 2
     # 1nnn JMP
 
     def jump_address(self):
@@ -271,100 +312,107 @@ class Chip8(object):
         self.pc += 2
 
     def draw_sprites(self):
-        print("{:03X}  DRW V{:01X}, V{:01X},".format(
+        print("{:03X}  DRW V{:01X}, V{:01X}".format(
             self.pc, self.secondnib, self.next_byte_firstnib))
         x_pos = self.general_registers[self.secondnib]
         y_pos = self.general_registers[self.next_byte_firstnib]
         num_bytes = self.next_byte_secondnib
         self.general_registers[0x0F] = 0x00
-        self.draw_normal(x_pos,y_pos,num_bytes)
+        self.draw_normal(x_pos, y_pos, num_bytes)
 
     def draw_normal(self, x_pos, y_pos, num_bytes):
         for y_index in range(num_bytes):
-            color_byte = bin(self.vI + y_index)
+
+            color_byte = bin(self.memory[self.vI + y_index])
             color_byte = color_byte[2:].zfill(8)
             y_coord = y_pos + y_index
             y_coord = y_coord % self.screen.height
 
-        for x_index in range(8):
+            for x_index in range(8):
 
-            x_coord = x_pos + x_index
-            x_coord = x_coord % self.screen.width
+                x_coord = x_pos + x_index
+                x_coord = x_coord % self.screen.width
 
-            color = int(color_byte[x_index])
-            current_color = self.screen.get_pixel(x_coord, y_coord)
+                color = int(color_byte[x_index])
+                current_color = self.screen.get_pixel(x_coord, y_coord)
 
-            if color == 1 and current_color == 1:
-                self.general_registers[0x0F] = self.general_registers[0x0F] | 1
-                color = 0
+                if color == 1 and current_color == 1:
+                    self.general_registers[
+                        0xF] = self.general_registers[0xF] | 1
+                    color = 0
 
-            elif color == 0 and current_color == 1:
-                color = 1
+                elif color == 0 and current_color == 1:
+                    color = 1
 
-            self.screen.draw_pixel(x_coord, y_coord, color)
+                self.screen.draw_pixel(x_coord, y_coord, color)
 
         self.screen.update()
 
     def skip_next_on_key_press(self):
         print("{:03X}  SKP V{:01X}".format(
             self.pc, self.secondnib))
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                exit()
-                    
+
+        key_to_check = self.general_registers[self.secondnib]
+
         pressed_keys = pygame.key.get_pressed()
-        if pressed_keys == self.secondnib:
+        if pressed_keys[KEY_MAPPINGS[key_to_check]]:
             self.pc += 4
-        else: self.pc += 2
+        else:
+            self.pc += 2
 
     def skip_next_on_not_key_press(self):
         print("{:03X}  SKNP V{:01X}".format(
             self.pc, self.secondnib))
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                exit()
-                    
+        key_to_check = self.general_registers[self.secondnib]
+
         pressed_keys = pygame.key.get_pressed()
-        if pressed_keys != self.secondnib:
+        if not pressed_keys[KEY_MAPPINGS[key_to_check]]:
             self.pc += 4
-        else: self.pc += 2
+        else:
+            self.pc += 2
 
     # 8xxx...
     def load_register_with_register(self):
         print("{:03X}  LD V{:01X} V{:01X}".format(
             self.pc, self.secondnib, self.next_byte_firstnib))
-        self.general_registers[self.secondnib] = self.general_registers[self.next_byte_firstnib]
+        self.general_registers[self.secondnib] = self.general_registers[
+            self.next_byte_firstnib]
         self.pc += 2
 
     def logical_or(self):
         print("{:03X}  OR V{:01X} V{:01X}".format(
             self.pc, self.secondnib, self.next_byte_firstnib))
-        temp = self.general_registers[self.secondnib] | self.general_registers[self.next_byte_firstnib]
+        temp = self.general_registers[
+            self.secondnib] | self.general_registers[self.next_byte_firstnib]
         self.general_registers[self.secondnib] = temp
         self.pc += 2
 
     def logical_and(self):
         print("{:03X}  AND V{:01X} V{:01X}".format(
             self.pc, self.secondnib, self.next_byte_firstnib))
-        temp = self.general_registers[self.secondnib] & self.general_registers[self.next_byte_firstnib]
+        temp = self.general_registers[
+            self.secondnib] & self.general_registers[self.next_byte_firstnib]
         self.general_registers[self.secondnib] = temp
         self.pc += 2
 
     def logical_xor(self):
         print("{:03X}  XOR V{:01X} V{:01X}".format(
             self.pc, self.secondnib, self.next_byte_firstnib))
-        temp = self.general_registers[self.secondnib] ^ self.general_registers[self.next_byte_firstnib]
+        temp = self.general_registers[
+            self.secondnib] ^ self.general_registers[self.next_byte_firstnib]
         self.general_registers[self.secondnib] = temp
         self.pc += 2
 
     def add_registers(self):
         print("{:03X}  ADD V{:01X} V{:01X}".format(
             self.pc, self.secondnib, self.next_byte_firstnib))
-        temp = self.general_registers[self.secondnib] + self.general_registers[self.next_byte_firstnib]
+        temp = self.general_registers[self.secondnib] + \
+            self.general_registers[self.next_byte_firstnib]
         if temp > 0xFF:
             self.general_registers[0x0F] = 0x01
             temp = temp - 256
-        else: self.general_registers[0x0F] = 0x00
+        else:
+            self.general_registers[0x0F] = 0x00
         self.general_registers[self.secondnib] = temp
         self.pc += 2
 
@@ -373,11 +421,13 @@ class Chip8(object):
             self.pc, self.secondnib, self.next_byte_firstnib))
         if self.general_registers[self.secondnib] > self.general_registers[self.next_byte_firstnib]:
             self.general_registers[0x0F] = 0x01
-            temp = self.general_registers[self.secondnib] - self.general_registers[self.next_byte_firstnib]
+            temp = self.general_registers[
+                self.secondnib] - self.general_registers[self.next_byte_firstnib]
             self.general_registers[self.secondnib] = temp
-        else: 
+        else:
             self.general_registers[0x0F] = 0x00
-            temp = 256 + self.general_registers[self.secondnib] - self.general_registers[self.next_byte_firstnib]
+            temp = 256 + self.general_registers[self.secondnib] - \
+                self.general_registers[self.next_byte_firstnib]
             self.general_registers[self.secondnib] = temp
 
         self.pc += 2
@@ -388,7 +438,8 @@ class Chip8(object):
         bit_zero = self.general_registers[self.secondnib] & 0x01
         self.general_registers[0x0F] = bit_zero
 
-        self.general_registers[self.secondnib] = self.general_registers[self.secondnib] >> 1
+        self.general_registers[self.secondnib] = self.general_registers[
+            self.secondnib] >> 1
         self.pc += 2
 
     def sub_registers_y_x(self):
@@ -396,11 +447,14 @@ class Chip8(object):
             self.pc, self.next_byte_firstnib, self.secondnib))
         if self.general_registers[self.next_byte_firstnib] > self.general_registers[self.secondnib]:
             self.general_registers[0x0F] = 0x01
-            temp = self.general_registers[self.next_byte_firstnib] - self.general_registers[self.secondnib]
+            temp = self.general_registers[
+                self.next_byte_firstnib] - self.general_registers[self.secondnib]
             self.general_registers[self.secondnib] = temp
-        else: 
+        else:
             self.general_registers[0x0F] = 0x00
-            temp = 256 + self.general_registers[self.next_byte_firstnib] - self.general_registers[self.secondnib]
+            temp = 256 + \
+                self.general_registers[
+                    self.next_byte_firstnib] - self.general_registers[self.secondnib]
             self.general_registers[self.secondnib] = temp
         self.pc += 2
 
@@ -410,7 +464,8 @@ class Chip8(object):
         bit_seven = (self.general_registers[self.secondnib] & 0x80) >> 8
         self.general_registers[0x0F] = bit_seven
 
-        self.general_registers[self.secondnib] = self.general_registers[self.secondnib] << 1
+        self.general_registers[self.secondnib] = self.general_registers[
+            self.secondnib] << 1
         self.pc += 2
 
     # TODO OBSOLETE
@@ -449,24 +504,38 @@ class Chip8(object):
             self.pc, self.code, self.next_byte, self.secondnib))
 
     def add_i_and_register(self):
-        print("{:03X}  {:02X}{:02X}  ADD I, V{:02X}".format(
-            self.pc, self.code, self.next_byte, self.secondnib))
+        print("{:03X}  ADD I, V{:02X}".format(
+            self.pc, self.secondnib))
+        self.vI += self.general_registers[self.secondnib]
+        if self.vI > 255:
+            self.general_registers[self.secondnib] -= 256
 
     def load_f_in_register(self):
-        print("{:03X}  {:02X}{:02X}  LD F, V{:02X}".format(
-            self.pc, self.code, self.next_byte, self.secondnib))
+        print("{:03X}  LD F, V{:01X}".format(
+            self.pc, self.secondnib))
+        self.vI = self.general_registers[self.secondnib]
 
     def load_b_in_register(self):
-        print("{:03X}  {:02X}{:02X}  LD B, V{:02X}".format(
-            self.pc, self.code, self.next_byte, self.secondnib))
+        print("{:03X}  LD B, V{:01X}".format(
+            self.pc, self.secondnib))
+        temp = self.general_registers[self.secondnib]
+        temp = list(map(int, str(temp)))
+
+        self.memory[self.vI] = temp[0]
+        if self.general_registers[self.secondnib] > 9:
+            self.memory[self.vI + 1] = temp[1]
+        if self.general_registers[self.secondnib] > 99:
+            self.memory[self.vI + 2] = temp[2]
 
     def store_in_memory(self):
         print("{:03X}  {:02X}{:02X}  LD [I], V{:02X}".format(
             self.pc, self.code, self.next_byte, self.secondnib))
 
     def read_from_memory(self):
-        print("{:03X}  {:02X}{:02X}  LD V{:02X}, [I]".format(
-            self.pc, self.code, self.next_byte, self.secondnib))
+        print("{:03X}  LD V{:01X}, [I]".format(
+            self.pc, self.secondnib))
+        for i in range(self.secondnib):
+            self.general_registers[self.secondnib + i] = self.vI + i
 
     def timers(self):
         if self.delay_timer != 0x00:
@@ -474,13 +543,14 @@ class Chip8(object):
         if self.sound_timer != 0x00:
             self.sound_timer -= 0x01
 
+    def print_registers(self):
+        for i, register in enumerate(self.general_registers):
+            print("V{} {:02X}".format(i, register))
+
     def disassembler(self, current_byte, next_byte):
         self.code = current_byte
-        # print("{:02X}".format(self.code))
         self.firstnib = self.code >> 4
-        # print("{:02X}".format(self.firstnib))
         self.secondnib = self.code & 0x0F
-        # print("{:02X}".format(self.secondnib))
         self.next_byte = next_byte
         self.next_byte_firstnib = self.next_byte >> 4
         self.next_byte_secondnib = self.next_byte & 0x0F
@@ -494,17 +564,16 @@ def wait():
 
 def main():
 
-    TIMER = pygame.USEREVENT+1
+    TIMER = pygame.USEREVENT + 1
     current_byte = 0
     next_byte = 0
     clock = pygame.time.Clock()
-    pygame.init()
     screen = Chip8Screen(scale_factor=10)
     screen.init_display()
     chip8 = Chip8(screen)
-    pygame.time.set_timer(TIMER,17)
+    pygame.time.set_timer(TIMER, 17)
 
-
+    chip8.load_fonts_to_memory()
     chip8.load_file_to_memory()
     running = True
     while running:
@@ -512,7 +581,8 @@ def main():
         next_byte = chip8.memory[chip8.pc + 0x01]
         current_byte = chip8.memory[chip8.pc]
         chip8.disassembler(current_byte, next_byte)
-        #wait()
+        # chip8.print_registers()
+        # wait()
 
         for event in pygame.event.get():
             if event.type == TIMER:
